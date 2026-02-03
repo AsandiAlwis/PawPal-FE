@@ -126,7 +126,7 @@ const Sidebar = () => {
     { to: "/vet/appointments", icon: <FaCalendarAlt />, label: "All Appointments" },
     { to: "/vet/pets", icon: <FaPaw />, label: "Registered Pets" },
     { to: "/vet/pets/pending", icon: <FaHourglassHalf />, label: "Pending Registrations" },
-    { to: "/vet/chat", icon: <FaComments />, label: "Chat with Owners" },
+   // { to: "/vet/chat", icon: <FaComments />, label: "Chat with Owners" },
     { to: "/vet/staff", icon: <FaUsers />, label: "Clinic Staff" },
     { to: "/vet/clinic-settings", icon: <FaCog />, label: "Clinic Settings" },
   ];
@@ -152,7 +152,7 @@ const Sidebar = () => {
       </Menu>
 
       <SignOutContainer>
-        <MenuItem to="/logout">
+        <MenuItem to="/vet/login">
           <Icon><FaSignOutAlt /></Icon>
           Sign Out
         </MenuItem>

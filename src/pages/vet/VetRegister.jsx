@@ -173,7 +173,6 @@ const Select = styled.select`
   background-position: right 20px center;
   background-repeat: no-repeat;
   background-size: 12px;
-  padding-right: 50px;
 `;
 
 const CheckboxContainer = styled.div`
@@ -306,7 +305,7 @@ const VetRegister = () => {
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
 
-      navigate('/vet/dashboard');
+      navigate('/vet/login');
     } catch (error) {
       Swal.fire('Error', error.response?.data?.message || 'Registration failed', 'error');
     } finally {

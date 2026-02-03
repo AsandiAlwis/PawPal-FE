@@ -17,7 +17,7 @@ const AuthContainer = styled.div`
 const AuthCard = styled.div`
   width: 100%;
   max-width: 900px;
-  max-height: 680px;              /* Reduced height to prevent scrolling on most screens */
+  max-height: 680px;
   border-radius: 24px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
   overflow: hidden;
@@ -27,7 +27,7 @@ const AuthCard = styled.div`
   @media (max-width: 768px) {
     flex-direction: column;
     max-width: 480px;
-    max-height: none;             /* Allow natural height on mobile */
+    max-height: none;
   }
 `;
 
@@ -36,7 +36,7 @@ const LeftSection = styled.div`
   position: relative;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;      /* Push content to the bottom */
+  justify-content: flex-end;
   align-items: center;
   overflow: hidden;
   color: white;
@@ -54,7 +54,7 @@ const LeftSection = styled.div`
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    opacity: 1;                   /* Full original colors and sharpness */
+    opacity: 1;
     z-index: 0;
   }
 
@@ -62,7 +62,7 @@ const LeftSection = styled.div`
     position: relative;
     z-index: 1;
     max-width: 320px;
-    margin-bottom: 30px;          /* Spacing from bottom edge */
+    margin-bottom: 30px;
   }
 
   @media (max-width: 768px) {
@@ -73,7 +73,7 @@ const LeftSection = styled.div`
 
 const RightSection = styled.div`
   flex: 1;
-  padding: 50px 60px;              /* Slightly reduced vertical padding */
+  padding: 50px 60px;
   background-color: white;
   display: flex;
   flex-direction: column;
@@ -164,27 +164,51 @@ const LinkText = styled.a`
   }
 `;
 
+const ErrorMessage = styled.div`
+  background-color: #ffebee;
+  color: #c62828;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+  border-left: 4px solid #c62828;
+`;
+
 const VetLogin = () => {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  });
+  const [formData, setFormData] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    setError('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     if (!formData.email || !formData.password) {
-      Swal.fire('Error', 'Please fill in all fields', 'warning');
+      setError('Please fill in all fields');
+      return;
+    }
+
+    if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      setError('Please enter a valid email address');
       return;
     }
 
     setLoading(true);
+    setError('');
+
     try {
+      // Clear only vet-related items
+      localStorage.removeItem('vet_token');
+      localStorage.removeItem('vet_user');
+      localStorage.removeItem('vet');
+
+      delete api.defaults.headers.common['Authorization'];
+
       const response = await api.post('/auth/login', {
         email: formData.email,
         password: formData.password
@@ -192,20 +216,51 @@ const VetLogin = () => {
 
       const { token, user } = response.data;
 
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
+      if (!user || user.role !== 'vet') {
+        setError(`This portal is for veterinarians only. Detected role: ${user?.role || 'none'}`);
+        setLoading(false);
+        return;
+      }
+
+      // Optional: decode & verify role (can be removed later)
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      if (payload.role !== 'vet') {
+        setError('Token role mismatch - please try again');
+        setLoading(false);
+        return;
+      }
+
+      // Store prefixed
+      localStorage.setItem('vet_token', token);
+      localStorage.setItem('vet_user', JSON.stringify(user));
+
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+      // Quick auth test
+      await api.get('/auth/me');
 
       Swal.fire({
-        title: 'Welcome back!',
+        title: 'Welcome back, Doctor!',
         text: `Dr. ${user.firstName} ${user.lastName}`,
         icon: 'success',
-        timer: 1500,
+        timer: 1800,
         showConfirmButton: false
       });
 
-      navigate('/vet/dashboard');
-    } catch (error) {
-      Swal.fire('Login Failed', error.response?.data?.message || 'Invalid credentials', 'error');
+      setTimeout(() => navigate('/vet/dashboard'), 2000);
+    } catch (err) {
+      let msg = 'Login failed. Please check your credentials.';
+      if (err.response?.status === 401) msg = 'Invalid email or password';
+      if (err.response?.data?.message) msg = err.response.data.message;
+
+      setError(msg);
+
+      localStorage.removeItem('vet_token');
+      localStorage.removeItem('vet_user');
+      localStorage.removeItem('vet');
+      delete api.defaults.headers.common['Authorization'];
+
+      Swal.fire('Login Failed', msg, 'error');
     } finally {
       setLoading(false);
     }
@@ -214,23 +269,18 @@ const VetLogin = () => {
   return (
     <AuthContainer>
       <AuthCard>
-        {/* LEFT SIDE - Image with text at the bottom */}
         <LeftSection>
           <div>
-            <h1 style={{ fontSize: '3rem', marginBottom: '16px' }}>PawPal</h1>
-            <h2 style={{ opacity: 0.95, marginBottom: '24px' }}>
-              Veterinary Management System
-            </h2>
-            <p style={{ maxWidth: '300px', margin: '0 auto' }}>
-              Caring for pets, empowering veterinarians.
-            </p>
+            <h1 style={{ fontSize: '3.2rem', marginBottom: '16px' }}>PawPal</h1>
+            <h2 style={{ opacity: 0.95 }}>Veterinary Management</h2>
           </div>
         </LeftSection>
 
-        {/* RIGHT SIDE - Login Form */}
         <RightSection>
           <Title>Veterinarian Login</Title>
           <Subtitle>Access your clinic dashboard</Subtitle>
+
+          {error && <ErrorMessage>{error}</ErrorMessage>}
 
           <Form onSubmit={handleSubmit}>
             <Input
@@ -240,6 +290,7 @@ const VetLogin = () => {
               value={formData.email}
               onChange={handleChange}
               required
+              disabled={loading}
             />
             <Input
               type="password"
@@ -248,19 +299,22 @@ const VetLogin = () => {
               value={formData.password}
               onChange={handleChange}
               required
+              disabled={loading}
             />
-
             <SubmitButton type="submit" disabled={loading}>
               {loading ? 'Signing in...' : 'Sign In'}
             </SubmitButton>
           </Form>
 
           <RegisterLink>
-            <p style={{ color: '#666', marginBottom: '8px' }}>New to PawPal?</p>
-            <LinkText href="/vet/register">
-              Register as a Veterinarian
-            </LinkText>
+            <p>New to PawPal?</p>
+            <LinkText href="/vet/register">Register as Veterinarian</LinkText>
           </RegisterLink>
+
+          <div style={{ textAlign: 'center', marginTop: '24px' }}>
+            <p>Pet owner?</p>
+            <LinkText href="/owner/login">Go to Owner Login</LinkText>
+          </div>
         </RightSection>
       </AuthCard>
     </AuthContainer>
